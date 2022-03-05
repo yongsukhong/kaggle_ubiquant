@@ -1,0 +1,111 @@
+import matplotlib.pyplot as plt
+import csv
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import backend as K
+import pandas as pd
+from sklearn.model_selection import train_test_split
+import gc
+
+
+## 1. data preprocessing
+
+
+df = pd.read_parquet("/kaggle/input/ubiquant-parquet/train_low_mem.parquet")
+df.head()
+print(df.isnull().sum()) #check whether there is null value                 #problem in here -> exceed ram why? I made another huge list -> df_2
+
+#df_2 = df.drop('time_id',axis='columns')
+#df_2 = df_2.drop('investment_id',axis='columns')
+#df_2.head()
+
+df = df.drop('time_id',axis='columns').drop('investment_id',axis='columns')           #solving by manipulating one variation 
+df.head()      
+
+
+
+# sampling data 
+
+#y = df_2['target'].values                                                                                      #this also takes too much ram
+# print(y)
+#x_columns = df_2.drop('target', axis='columns').drop('row_id',axis='columns') #you can use drop sequently       
+#x= df[x_columns].values 
+
+df['target']
+df.loc[:,"f_0":]                                                        #solving by manipulating one variation (slicing columns)                                        
+
+
+x_train, x_test, y_train, y_test = train_test_split(df['target'].values, df.loc[:,"f_0":].values, test_size=0.33, random_state= 123)
+                                                      # ram over 16G, don't know why .values
+
+# print(x_test)
+# print(y_test)
+
+print(np.shape(x_test))
+print(np.shape(y_test))
+print(np.shape(x_train))
+print(np.shape(y_train))
+
+##2. make train_set and data set
+
+
+def build_model():
+    input = Input(shape=(300,), name = 'input')
+    hidden1 = Dense(256, activation = 'relu', name = 'dense1')(input)
+    hidden2 = Dense(256, activation = 'relu', name = 'dense2')(hidden1)
+    dropout = Dropout(0.3)(hidden2)
+    hidden3 = Dense(128, activation = 'relu', name = 'dense3')(dropout)
+    output = Dense(1, name = 'output')(hidden3)
+    
+    model = Model(inputs=[input], outputs=output)
+    
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    
+    return model
+    
+import ubiquant
+env = ubiquant.make_env()   # initialize the environment
+iter_test = env.iter_test()    # an iterator which loops over the test set and sample submission
+
+EPOCH=300
+
+kf = KFold(5, shuffle=True, random_state = 111) # random_state = consistency
+
+for (test_df, sample_prediction_df) in iter_test:
+    numpy_test_df=test_df.to_numpy()
+    test_len = numpy_test_df.shape[0]
+    #print(test_len)
+    
+    oos_pred = []
+    append_pred =[]
+    mean_pred = []
+    
+
+    fold = 0
+    while fold <= 5:
+        fold+=1
+        print(f"Fold #{fold}")
+
+        model = build_model()
+        early_stopping = EarlyStopping(patience = 50)
+        model.fit(x_train, y_train, batch_size=64, validation_data=(x_test, y_test), epochs = EPOCH, callbacks=[early_stopping])
+
+        pred = model.predict(numpy_test_df[:,2:].astype(float))
+
+        oos_pred.append(pred)
+        print(oos_pred)
+     
+    
+    for j in range(test_len):
+        for k in range(fold): 
+            append_pred.append(oos_pred[k][j][-1])
+        mean = np.mean(append_pred)
+        mean_pred.append([mean])
+
+    print(mean_pred)
+    sample_prediction_df['target'] = mean_pred
+    env.predict(sample_prediction_df)   # register your predictions
+ 
