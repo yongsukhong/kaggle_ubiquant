@@ -31,7 +31,7 @@ df.head()
 
 #y = df_2['target'].values                                                                                      #this also takes too much ram
 # print(y)
-#x_columns = df_2.drop('target', axis='columns').drop('row_id',axis='columns') #you can use drop sequently       
+#x_columns = df_2.drop('target', axis='columns').drop('row_id',axis='columns') #you can use drop sequently       #drop makes a new dataframe 
 #x= df[x_columns].values 
 
 df['target']
