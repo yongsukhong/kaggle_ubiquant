@@ -16,18 +16,19 @@ import gc
 
 df = pd.read_parquet("/kaggle/input/ubiquant-parquet/train_low_mem.parquet")
 df.head()
-print(df.isnull().sum()) #check whether there is null value                 #problem in here -> exceed ram why? I made another huge list -> df_2
-
-#df_2 = df.drop('time_id',axis='columns')
+print(df.isnull().sum()) #check whether there is null value                 
+#df_2 = df.drop('time_id',axis='columns')                                            #problem in here -> exceed ram why? I made another huge list -> df_2
 #df_2 = df_2.drop('investment_id',axis='columns')
 #df_2.head()
 
-df = df.drop('time_id',axis='columns').drop('investment_id',axis='columns')           #solving by manipulating one variation 
-df.head()      
+#df = df.drop('time_id',axis='columns').drop('investment_id',axis='columns')          #solving by manipulating one variation 
+#df.head()
+
+#drop -> returns the copy
 
 
 
-# sampling data 
+## sampling data 
 
 #y = df_2['target'].values                                                                                      #this also takes too much ram
 # print(y)
@@ -38,18 +39,26 @@ df['target']
 df.loc[:,"f_0":]                                                        #solving by manipulating one variation (slicing columns)                                        
 
 
-x_train, x_test, y_train, y_test = train_test_split(df['target'].values, df.loc[:,"f_0":].values, test_size=0.33, random_state= 123)
-                                                      # ram over 16G, don't know why .values
 
-# print(x_test)
-# print(y_test)
-
-print(np.shape(x_test))
-print(np.shape(y_test))
-print(np.shape(x_train))
-print(np.shape(y_train))
 
 ##2. make train_set and data set
+
+#x_train, x_test, y_train, y_test = train_test_split(df['target'].values, df.loc[:,"f_0":].values, test_size=0.33, random_state= 123)     #train test split also takes a lot of ram
+                                                      
+
+x_ids = list(range(len(df)))
+x_train_ids, x_test_ids, Y_train, Y_test = train_test_split(x_ids,df['target'] , test_size = 0.33, random_state=42)     #memory efficient way to split large numpy array into train/test
+
+#x_train = df.loc[x_train_ids,"f_0":]
+#x_test = df.loc[x_test_ids,"f_0":]
+
+
+print(type(df.loc[x_train_ids,"f_0":].values))   #why we use values? w/o value = df ; w/ value = numpy array 
+
+
+
+
+##3.making model
 
 
 def build_model():
